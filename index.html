@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тестування: Інфекції з трансмісивним механізмом передачі</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #f0f2f5;
+            color: #1c1e21;
+            margin: 0;
+            padding: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center; 
+            min-height: 100vh;
+        }
+
+        #quiz-container, #result-container {
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 650px;
+            min-height: 300px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #quiz-header { padding: 20px; background-color: #007bff; color: white; border-radius: 12px 12px 0 0; }
+        #question-counter { font-size: 0.85em; opacity: 0.9; margin-bottom: 4px; }
+        #question-text { font-size: 1.15em; font-weight: 600; line-height: 1.4; }
+
+        #options-container { 
+            padding: 20px; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 12px;
+            flex-grow: 1;
+        }
+
+        .option-item {
+            display: flex;
+            align-items: center;
+            border: 2px solid #e4e6eb;
+            border-radius: 10px;
+            padding: 14px;
+            cursor: pointer;
+            transition: all 0.1s ease;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .option-item:active { transform: scale(0.98); background-color: #f0f2f5; }
+        .option-item.selected { border-color: #007bff; background-color: #e7f3ff; }
+        .option-item.correct { border-color: #28a745; background-color: #d4edda; color: #155724; }
+        .option-item.incorrect { border-color: #dc3545; background-color: #f8d7da; color: #721c24; }
+
+        .option-item input { width: 20px; height: 20px; margin-right: 15px; flex-shrink: 0; pointer-events: none; }
+        .option-item label { flex-grow: 1; cursor: pointer; font-size: 1em; pointer-events: none; }
+
+        #navigation {
+            padding: 15px 20px;
+            background-color: #f8f9fa;
+            border-top: 1px solid #e4e6eb;
+            display: flex;
+            justify-content: flex-end;
+            border-radius: 0 0 12px 12px;
+        }
+
+        .nav-button {
+            padding: 12px 24px;
+            border-radius: 8px;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            background-color: #007bff;
+            color: white;
+            transition: background-color 0.2s;
+        }
+
+        .nav-button:hover { background-color: #0056b3; }
+        .nav-button:disabled { background-color: #bcc0c4; cursor: not-allowed; }
+        #feedback-container { padding: 10px 20px; text-align: center; font-weight: bold; display: none; }
+        .res-correct { color: #28a745; }
+        .res-wrong { color: #dc3545; }
+        .result-item { padding: 15px; border-bottom: 1px solid #eee; }
+        #result-container { display: none; padding: 20px; max-height: 90vh; overflow-y: auto; }
+    </style>
+</head>
+<body>
+
+    <div id="quiz-container">
+        <div id="quiz-header">
+            <div id="question-counter"></div>
+            <div id="question-text"></div>
+        </div>
+        <div id="options-container"></div>
+        <div id="feedback-container"></div>
+        <div id="navigation">
+            <button class="nav-button" id="main-btn" onclick="handleButtonClick()" disabled>Перевірити</button>
+        </div>
+    </div>
+
+    <div id="result-container">
+        <h2>Результат</h2>
+        <div id="score-text"></div>
+        <div id="error-review"></div>
+        <button class="nav-button" onclick="location.reload()" style="width:100%; margin-top:20px;">Почати знову</button>
+    </div>
+
+    <script>
+        // ТУТ ЗБЕРІГАЮТЬСЯ ВСІ ПИТАННЯ (Поки що перші 30)
+        const quizData = [
+            { question: "417. Збудник малярії відноситься до:", options: { a: "бактерій", b: "вірусів", c: "типу найпростіших", d: "грибів" }, correct: ["c"] },
+            { question: "418. Скільки видів плазмодія можуть паразитувати у людини?", options: { a: "два", b: "три", c: "чотири", d: "п'ять" }, correct: ["c"] },
+            { question: "419. Вид малярійного плазмодія, що викликає розвиток тропічної малярії:", options: { a: "P. falciparum", b: "P. vivax", c: "P. ovale", d: "P. malariae" }, correct: ["a"] },
+            { question: "420. Вид малярійного плазмодія, що викликає розвиток чотириденної малярії:", options: { a: "P. falciparum", b: "P. malariae", c: "P. vivax", d: "P. ovale" }, correct: ["b"] },
+            { question: "421. Найбільш характерний шлях передачі малярії:", options: { a: "повітряно-крапельний", b: "аліментарний", c: "контактно-побутовий", d: "трансмісивний" }, correct: ["d"] },
+            { question: "422. Переносник малярії:", options: { a: "кліщі", b: "москіти", c: "воші", d: "комарі роду Anopheles" }, correct: ["d"] },
+            { question: "1. Який цикл розвитку малярійного плазмодія відбувається в організмі людини?", options: { a: "шизогонія", b: "спорогонія", c: "спорогонія і шизогонія" }, correct: ["a"] },
+            { question: "2. Який цикл розвитку малярійного плазмодія відбувається в організмі комара?", options: { a: "шизогонія", b: "спорогонія", c: "спорогонія і шизогонія" }, correct: ["b"] },
+            { question: "3. Малярія, що має найбільш важкий перебіг:", options: { a: "триденна", b: "тропічна", c: "овале", d: "чотириденна" }, correct: ["b"] },
+            { question: "4. Приступи малярії спостерігаються в різні години доби при:", options: { a: "триденній", b: "овале", c: "тропічній", d: "чотириденній" }, correct: ["c"] },
+            { question: "5. Які дослідження використовують для підтвердження діагнозу малярії:", options: { a: "загальний аналіз крові", b: "мазки крові, товста крапля крові", c: "серологічні методи", d: "біологічні методи" }, correct: ["b"] },
+            { question: "6. Малярія, при якій в периферійній крові можна знайти тільки кільцевидні трофозоїти і гамети:", options: { a: "P. ovale", b: "P. vivax", c: "P. falciparum", d: "P. malariae" }, correct: ["c"] },
+            { question: "7. Малярія, при якій можна досліджувати кров, не дочекавшись пароксизму:", options: { a: "тропічна", b: "овале", c: "триденна", d: "чотириденна" }, correct: ["a"] },
+            { question: "8. Малярія, для якої найбільш характерний розвиток ускладнень:", options: { a: "овале", b: "триденна", c: "чотириденна", d: "тропічна" }, correct: ["d"] },
+            { question: "9. Ускладнення, не характерне для тропічної малярії:", options: { a: "алгід", b: "малярійна кома", c: "гемоглобінурійна лихоманка", d: "нефротичний синдром", e: "дегідратаційний шок" }, correct: ["e"] },
+            { question: "14. Не використовуються для індивідуальної хіміопрофілактики малярії:", options: { a: "делагіл", b: "фансідар", c: "амодіахін", d: "тетрациклін" }, correct: ["d"] },
+            { question: "15. Група інфекцій, до якої відносяться рикетсіози:", options: { a: "кишкові", b: "крапельні", c: "особливо небезпечні", d: "трансмісивні" }, correct: ["d"] },
+            { question: "16. При висипному тифі:", options: { a: "джерело інфекції - одежна воша", b: "зараження може відбуватись контактно-побутовим шляхом", c: "сприятливі переважно люди похилого віку", d: "механізм передачі - трансмісивний" }, correct: ["d"] },
+            { question: "17. Зовнішній вигляд хворого при висипному тифі:", options: { a: "обличчя одутловате, бліде, світлобоязнь, нежить", b: "обличчя одутловате, гіперемійоване, судини склер ін'єковані, очі блищать, хворий неспокійний, на тулубі - розеольозно-петехіальний висип", c: "обличчя одутловате, погляд затьмарений, байдужий", d: "зовнішній вигляд без змін" }, correct: ["b"] },
+            { question: "18. Поведінка хворих на висипний тиф:", options: { a: "апатичний, байдужий до навколишнього", b: "хворий спокійний, з бажанням контактує", c: "хворий неспокійний, багато і беззв'язно говорить, дезорієнтований в навколишньому, можливі галюцинації", d: "хворий стогне, метушиться, орієнтований" }, correct: ["c"] },
+            { question: "19. Найбільш характерна температурна крива при висипному тифі на висоті захворювання:", options: { a: "ремітуюча", b: "субфебрильна", c: "постійна", d: "гектична" }, correct: ["c"] },
+            { question: "20. Характер висипу при висипному тифі:", options: { a: "розеольозно-петехіальна з фестончатим краєм", b: "розеольозна, круглої форми, зникає при надавлюванні", c: "уртикарна", d: "крупно-плямиста" }, correct: ["a"] },
+            { question: "21. Строки появи висипу при висипному тифі:", options: { a: "2-3-й день хвороби", b: "4-5-й день хвороби", c: "8-10-й день хвороби", d: "в будь-який час" }, correct: ["b"] },
+            { question: "22. Характер головного болю при висипному тифі:", options: { a: "біль локалізується в лобній частині голови, підсилюється при рухах", b: "біль гострий, інтенсивний в потиличній ділянці", c: "біль розлитий, нерізко виражений", d: "біль інтенсивний, постійний, розлитий" }, correct: ["d"] },
+            { question: "23. Захворювання, при якому мають місце симптоми Кіарі-Авцина, Говорова-Годельє:", options: { a: "черевний тиф", b: "висипний тиф", c: "грип", d: "лептоспіроз" }, correct: ["b"] },
+            { question: "24. Захворювання, при якому є лихоманка, різкий головний біль, безсоння, гіперемія та одутловатісь обличчя, «кролячі очі», кон'юнктивальна енантема, ейфорія:", options: { a: "грип", b: "черевний тиф", c: "висипний тиф", d: "геморагічна лихоманка з нирковим синдромом" }, correct: ["c"] },
+            { question: "25. Найефективніші препарати для лікування висипного тифу:", options: { a: "тетрациклін", b: "пеніцилін", c: "стрептоміцин", d: "сульфаніламіди" }, correct: ["a"] },
+            { question: "451. Збудник хвороби Брілла:", options: { a: "Rickettsia typhi", b: "Borrelia recurrentis", c: "Coxiella burnetii", d: "Rickettsia prowazekii" }, correct: ["d"] },
+            { question: "28. Вкажіть на правильне твердження при сепсисі:", options: { a: "найбільш частими збудниками є патогенні мікроорганізми", b: "найбільшу небезпеку становлять госпітальні штами умовно патогенних мікроорганізмів", c: "характерний циклічний перебіг хвороби", d: "клінічні прояви хвороби залежать виключно від збудника" }, correct: ["b"] },
+            { question: "29. Найбільш характерним клінічним проявом сепсису є все, крім:", options: { a: "лихоманки неправильного типу", b: "ознобу, поту", c: "гепатолієнального синдрому", d: "вираженої інтоксикації", e: "поліаденопатії" }, correct: ["e"] }
+        ];
+
+        let currentQ = 0;
+        let score = 0;
+        let errors = [];
+        let isAnswered = false;
+        let userSelect = [];
+
+        function loadQ() {
+            isAnswered = false;
+            userSelect = [];
+            document.getElementById('feedback-container').style.display = 'none';
+            document.getElementById('main-btn').innerText = "Перевірити";
+            document.getElementById('main-btn').disabled = true;
+            
+            const q = quizData[currentQ];
+            document.getElementById('question-counter').innerText = `Питання ${currentQ + 1} з ${quizData.length}`;
+            document.getElementById('question-text').innerText = q.question;
+            
+            const container = document.getElementById('options-container');
+            container.innerHTML = '';
+            
+            const type = q.correct.length > 1 ? 'checkbox' : 'radio';
+            
+            for (let key in q.options) {
+                const item = document.createElement('div');
+                item.className = 'option-item';
+                item.innerHTML = `
+                    <input type="${type}" id="${key}" name="opt">
+                    <label>${key}) ${q.options[key]}</label>
+                `;
+                item.onclick = () => selectOpt(item, key, type);
+                container.appendChild(item);
+            }
+        }
+
+        function selectOpt(item, key, type) {
+            if (isAnswered) return;
+            if (type === 'radio') {
+                userSelect = [key];
+                document.querySelectorAll('.option-item').forEach(el => el.classList.remove('selected'));
+                item.classList.add('selected');
+                document.querySelectorAll('input').forEach(i => i.checked = false);
+                item.querySelector('input').checked = true;
+            } else {
+                if (userSelect.includes(key)) {
+                    userSelect = userSelect.filter(k => k !== key);
+                    item.classList.remove('selected');
+                    item.querySelector('input').checked = false;
+                } else {
+                    userSelect.push(key);
+                    item.classList.add('selected');
+                    item.querySelector('input').checked = true;
+                }
+            }
+            document.getElementById('main-btn').disabled = userSelect.length === 0;
+        }
+
+        function handleButtonClick() {
+            if (!isAnswered) check();
+            else next();
+        }
+
+        function check() {
+            isAnswered = true;
+            const q = quizData[currentQ];
+            const isCorrect = userSelect.sort().join() === q.correct.sort().join();
+            
+            const feedback = document.getElementById('feedback-container');
+            feedback.style.display = 'block';
+            
+            if (isCorrect) {
+                score++;
+                feedback.innerHTML = '<span class="res-correct">Правильно!</span>';
+            } else {
+                feedback.innerHTML = '<span class="res-wrong">Неправильно.</span>';
+                errors.push({
+                    q: q.question,
+                    user: userSelect.map(k => `${k}) ${q.options[k]}`).join(', '),
+                    correct: q.correct.map(k => `${k}) ${q.options[k]}`).join(', ')
+                });
+            }
+            
+            document.querySelectorAll('.option-item').forEach(el => {
+                const val = el.querySelector('input').id;
+                if (q.correct.includes(val)) el.classList.add('correct');
+                else if (userSelect.includes(val)) el.classList.add('incorrect');
+            });
+            
+            document.getElementById('main-btn').innerText = (currentQ < quizData.length - 1) ? "Наступне" : "Завершити";
+        }
+
+        function next() {
+            currentQ++;
+            if (currentQ < quizData.length) loadQ();
+            else showResult();
+        }
+
+        function showResult() {
+            document.getElementById('quiz-container').style.display = 'none';
+            document.getElementById('result-container').style.display = 'block';
+            document.getElementById('score-text').innerHTML = `<h3>Ваш рахунок: ${score} з ${quizData.length}</h3>`;
+            
+            const review = document.getElementById('error-review');
+            if (errors.length > 0) {
+                review.innerHTML = '<h4>Огляд помилок:</h4>';
+                errors.forEach(err => {
+                    review.innerHTML += `
+                        <div class="result-item">
+                            <p><strong>${err.q}</strong></p>
+                            <p class="res-wrong">Ви: ${err.user || 'нічого'}</p>
+                            <p class="res-correct">Правильно: ${err.correct}</p>
+                        </div>
+                    `;
+                });
+            }
+        }
+        loadQ();
+    </script>
+</body>
+</html>
